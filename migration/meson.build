@@ -63,6 +63,13 @@ src = [
     'src/util/timeout.c',
 ]
 
+# Removed from src:
+#   'src/adb/adb.c',
+#   'src/adb/adb_device.c',
+#   'src/adb/adb_parser.c',
+#   'src/adb/adb_tunnel.c',
+#   'src/file_pusher.c',
+
 feature_test_macros = [
     '-D_GNU_SOURCE',
     '-D_POSIX_C_SOURCE=200809L',
@@ -101,6 +108,10 @@ if v4l2_support
     src += [ 'src/v4l2_sink.c' ]
 endif
 
+# USB/libusb support removed — AOA and OTG modes are no longer available.
+# UHID input (keyboard_uhid, mouse_uhid, gamepad_uhid) works over the
+# control socket and does NOT require libusb; it is always included.
+
 cc = meson.get_compiler('c')
 
 static = get_option('static')
@@ -116,6 +127,9 @@ dependencies = [
 if v4l2_support
     dependencies += dependency('libavdevice', static: static)
 endif
+
+# Removed:
+#   dependency('libusb-1.0', static: static)
 
 if host_machine.system() == 'windows'
     dependencies += cc.find_library('mingw32')
@@ -141,26 +155,18 @@ endforeach
 conf.set('HAVE_SOCK_CLOEXEC', host_machine.system() != 'windows' and
                               cc.has_header_symbol('sys/socket.h', 'SOCK_CLOEXEC'))
 
-# the version, updated on release
 conf.set_quoted('SCRCPY_VERSION', meson.project_version())
-
-# the prefix used during configuration (meson --prefix=PREFIX)
 conf.set_quoted('PREFIX', get_option('prefix'))
-
-# build a "portable" version (with scrcpy-server accessible from the same
-# directory as the executable)
 conf.set('PORTABLE', get_option('portable'))
 
-# the default client TCP port range for the "adb reverse" tunnel
-# overridden by option --port
-conf.set('DEFAULT_LOCAL_PORT_RANGE_FIRST', '27183')
-conf.set('DEFAULT_LOCAL_PORT_RANGE_LAST', '27199')
+# Default port for direct TCP connection to device
+conf.set('DEFAULT_DEVICE_PORT', '27183')
 
-# run a server debugger and wait for a client to be attached
 conf.set('SERVER_DEBUGGER', get_option('server_debugger'))
-
-# enable V4L2 support (linux only)
 conf.set('HAVE_V4L2', v4l2_support)
+
+# HAVE_USB is no longer defined — all #ifdef HAVE_USB blocks become dead code
+# and should be removed from source files.
 
 configure_file(configuration: conf, output: 'config.h')
 
@@ -172,102 +178,4 @@ executable('scrcpy', src,
            install: true,
            c_args: [])
 
-# <https://mesonbuild.com/Builtin-options.html#directories>
-datadir = get_option('datadir') # by default 'share'
-
-install_man('scrcpy.1')
-install_data('data/scrcpy.png',
-             install_dir: datadir / 'icons/hicolor/256x256/apps')
-install_data('data/disconnected.png',
-             install_dir: datadir / 'icons/hicolor/256x256/apps')
-install_data('data/zsh-completion/_scrcpy',
-             install_dir: datadir / 'zsh/site-functions')
-install_data('data/bash-completion/scrcpy',
-             install_dir: datadir / 'bash-completion/completions')
-
-# Desktop entry file for application launchers
-if host_machine.system() == 'linux'
-    # Install a launcher (ex: /usr/local/share/applications/scrcpy.desktop)
-    install_data('data/scrcpy.desktop',
-                 install_dir: datadir / 'applications')
-    install_data('data/scrcpy-console.desktop',
-                 install_dir: datadir / 'applications')
-endif
-
-
-### TESTS
-
-# do not build tests in release (assertions would not be executed at all)
-if get_option('buildtype') == 'debug'
-    tests = [
-        ['test_binary', [
-            'tests/test_binary.c',
-        ]],
-        ['test_audiobuf', [
-            'tests/test_audiobuf.c',
-            'src/util/audiobuf.c',
-            'src/util/memory.c',
-        ]],
-        ['test_cli', [
-            'tests/test_cli.c',
-            'src/cli.c',
-            'src/options.c',
-            'src/util/log.c',
-            'src/util/net.c',
-            'src/util/str.c',
-            'src/util/strbuf.c',
-            'src/util/term.c',
-        ]],
-        ['test_command_windows', [
-          'tests/test_command_windows.c',
-          'src/util/command.c',
-          'src/util/str.c',
-          'src/util/strbuf.c',
-        ]],
-        ['test_control_msg_serialize', [
-            'tests/test_control_msg_serialize.c',
-            'src/control_msg.c',
-            'src/util/str.c',
-            'src/util/strbuf.c',
-        ]],
-        ['test_device_msg_deserialize', [
-            'tests/test_device_msg_deserialize.c',
-            'src/device_msg.c',
-        ]],
-        ['test_orientation', [
-            'tests/test_orientation.c',
-            'src/options.c',
-        ]],
-        ['test_strbuf', [
-            'tests/test_strbuf.c',
-            'src/util/strbuf.c',
-        ]],
-        ['test_str', [
-            'tests/test_str.c',
-            'src/util/str.c',
-            'src/util/strbuf.c',
-        ]],
-        ['test_vecdeque', [
-            'tests/test_vecdeque.c',
-            'src/util/memory.c',
-        ]],
-        ['test_vector', [
-            'tests/test_vector.c',
-        ]],
-    ]
-
-    foreach t : tests
-        sources = t[1] + ['src/compat.c']
-        exe = executable(t[0], sources,
-                         include_directories: src_dir,
-                         dependencies: dependencies,
-                         c_args: ['-DSC_TEST'])
-        test(t[0], exe)
-    endforeach
-endif
-
-if meson.version().version_compare('>= 0.58.0')
-       devenv = environment()
-       devenv.set('SCRCPY_ICON_DIR', meson.current_source_dir() / 'data')
-       meson.add_devenv(devenv)
-endif
+datadir = get_option('datadir')

@@ -328,6 +328,8 @@ public class Options {
 
         Options options = new Options();
 
+        options.tunnelForward = true;
+
         for (int i = 1; i < args.length; ++i) {
             String arg = args[i];
             int equalIndex = arg.indexOf('=');

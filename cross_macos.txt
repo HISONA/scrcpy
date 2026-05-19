@@ -1,0 +1,8 @@
+brew install meson 
+brew install autoconf 
+brew install automake 
+brew install libtool 
+
+cd release
+./build_macos.sh aarch64
+
