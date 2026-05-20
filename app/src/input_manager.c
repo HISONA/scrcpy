@@ -23,7 +23,6 @@ sc_input_manager_init(struct sc_input_manager *im,
     assert(!params->gp || params->gp->ops);
 
     im->controller = params->controller;
-    im->fp = params->fp;
     im->screen = params->screen;
     im->kp = params->kp;
     im->mp = params->mp;
@@ -1123,38 +1122,6 @@ sc_input_manager_process_gamepad_button(struct sc_input_manager *im,
     im->gp->ops->process_gamepad_button(im->gp, &evt);
 }
 
-static bool
-is_apk(const char *file) {
-    const char *ext = strrchr(file, '.');
-    return ext && !strcmp(ext, ".apk");
-}
-
-static void
-sc_input_manager_process_file(struct sc_input_manager *im,
-                              const SDL_DropEvent *event) {
-    if (im->camera || !im->controller || im->disconnected) {
-        return;
-    }
-
-    assert(event->type == SDL_EVENT_DROP_FILE);
-    char *file = strdup(event->data);
-    if (!file) {
-        LOG_OOM();
-        return;
-    }
-
-    enum sc_file_pusher_action action;
-    if (is_apk(file)) {
-        action = SC_FILE_PUSHER_ACTION_INSTALL_APK;
-    } else {
-        action = SC_FILE_PUSHER_ACTION_PUSH_FILE;
-    }
-    bool ok = sc_file_pusher_request(im->fp, action, file);
-    if (!ok) {
-        free(file);
-    }
-}
-
 static void
 sc_input_manager_on_device_disconnected(struct sc_input_manager *im) {
     im->disconnected = true;
@@ -1201,9 +1168,6 @@ sc_input_manager_handle_event(struct sc_input_manager *im,
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
         case SDL_EVENT_GAMEPAD_BUTTON_UP:
             sc_input_manager_process_gamepad_button(im, &event->gbutton);
-            break;
-        case SDL_EVENT_DROP_FILE:
-            sc_input_manager_process_file(im, &event->drop);
             break;
         case SC_EVENT_DEVICE_DISCONNECTED:
             sc_input_manager_on_device_disconnected(im);

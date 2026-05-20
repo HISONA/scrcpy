@@ -37,8 +37,6 @@ struct sc_server_params {
     const char *camera_zoom;
     uint16_t camera_fps;
     struct sc_port_range port_range;
-    uint32_t tunnel_host;
-    uint16_t tunnel_port;
     uint16_t max_size;
     uint8_t min_size_alignment;
     uint32_t video_bit_rate;

@@ -46,8 +46,6 @@ const struct scrcpy_options scrcpy_options_default = {
         .first = DEFAULT_LOCAL_PORT_RANGE_FIRST,
         .last = DEFAULT_LOCAL_PORT_RANGE_LAST,
     },
-    .tunnel_host = 0,
-    .tunnel_port = 0,
     .shortcut_mods = SC_SHORTCUT_MOD_LALT | SC_SHORTCUT_MOD_LSUPER,
     .min_size_alignment = 1,
     .max_size = 0,
@@ -75,9 +73,6 @@ const struct scrcpy_options scrcpy_options_default = {
     .v4l2_device = NULL,
     .v4l2_buffer = 0,
 #endif
-#ifdef HAVE_USB
-    .otg = false,
-#endif
     .show_touches = false,
     .fullscreen = false,
     .always_on_top = false,
@@ -90,24 +85,18 @@ const struct scrcpy_options scrcpy_options_default = {
     .window_borderless = false,
     .mipmaps = true,
     .stay_awake = false,
-    .force_adb_forward = false,
     .disable_screensaver = false,
     .forward_key_repeat = true,
     .legacy_paste = false,
     .power_off_on_close = false,
     .clipboard_autosync = true,
     .downsize_on_error = true,
-    .tcpip = false,
-    .tcpip_dst = NULL,
-    .select_tcpip = false,
-    .select_usb = false,
     .cleanup = true,
     .start_fps_counter = false,
     .power_on = true,
     .video = true,
     .audio = true,
     .require_audio = false,
-    .kill_adb_on_close = false,
     .camera_high_speed = false,
     .list = 0,
     .window = true,
@@ -121,6 +110,8 @@ const struct scrcpy_options scrcpy_options_default = {
     .camera_torch = false,
     .keep_active = false,
     .flex_display = false,
+    .device_host = NULL, // device IP address
+    .device_port = 0,    // device TCP port (default 27183)
 };
 
 enum sc_orientation

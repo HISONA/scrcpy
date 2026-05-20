@@ -88,23 +88,18 @@ sc_server_connect_to(struct sc_server *server, struct sc_server_info *info) {
     bool control = params->control;
 
     // Resolve device host
-    uint32_t host = params->tunnel_host;
-    if (!host) {
-        if (params->device_host) {
-            if (!net_parse_ipv4(params->device_host, &host)) {
-                LOGE("Invalid device host: %s", params->device_host);
-                return false;
-            }
-        } else {
-            LOGE("No device host specified. Use --device-host=<IP>");
+    uint32_t host = 0;
+    if (params->device_host) {
+        if (!net_parse_ipv4(params->device_host, &host)) {
+            LOGE("Invalid device host: %s", params->device_host);
             return false;
         }
+    } else {
+        LOGE("No device host specified. Use --device-host=<IP>");
+        return false;
     }
 
-    uint16_t port = params->tunnel_port;
-    if (!port) {
-        port = params->device_port;
-    }
+    uint16_t port = params->device_port;
     if (!port) {
         port = SC_DEFAULT_DEVICE_PORT;
     }

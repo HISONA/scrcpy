@@ -36,7 +36,6 @@ enum {
     OPT_RENDER_DRIVER,
     OPT_NO_MIPMAPS,
     OPT_VIDEO_CODEC_OPTIONS,
-    OPT_FORCE_ADB_FORWARD,
     OPT_DISABLE_SCREENSAVER,
     OPT_SHORTCUT_MOD,
     OPT_NO_KEY_REPEAT,
@@ -46,13 +45,9 @@ enum {
     OPT_V4L2_SINK,
     OPT_VIDEO_BUFFER,
     OPT_V4L2_BUFFER,
-    OPT_TUNNEL_HOST,
-    OPT_TUNNEL_PORT,
     OPT_NO_CLIPBOARD_AUTOSYNC,
-    OPT_TCPIP,
     OPT_RAW_KEY_EVENTS,
     OPT_NO_DOWNSIZE_ON_ERROR,
-    OPT_OTG,
     OPT_NO_CLEANUP,
     OPT_PRINT_FPS,
     OPT_NO_POWER_ON,
@@ -72,7 +67,6 @@ enum {
     OPT_NO_VIDEO_PLAYBACK,
     OPT_VIDEO_SOURCE,
     OPT_AUDIO_SOURCE,
-    OPT_KILL_ADB_ON_CLOSE,
     OPT_TIME_LIMIT,
     OPT_PAUSE_ON_EXIT,
     OPT_LIST_CAMERAS,
@@ -109,6 +103,8 @@ enum {
     OPT_KEEP_ACTIVE,
     OPT_BACKGROUND_COLOR,
     OPT_RENDER_FIT,
+    OPT_DEVICE_HOST,
+    OPT_DEVICE_PORT,
 };
 
 struct sc_option {
@@ -346,12 +342,6 @@ static const struct sc_option options[] = {
                 "(typically, portrait for a phone, landscape for a tablet).",
     },
     {
-        .shortopt = 'd',
-        .longopt = "select-usb",
-        .text = "Use USB device (if there is exactly one, like adb -d).\n"
-                "Also see -e (--select-tcpip).",
-    },
-    {
         .longopt_id = OPT_DISABLE_SCREENSAVER,
         .longopt = "disable-screensaver",
         .text = "Disable screensaver while scrcpy is running.",
@@ -390,21 +380,9 @@ static const struct sc_option options[] = {
                 "Default is 0.",
     },
     {
-        .shortopt = 'e',
-        .longopt = "select-tcpip",
-        .text = "Use TCP/IP device (if there is exactly one, like adb -e).\n"
-                "Also see -d (--select-usb).",
-    },
-    {
         .shortopt = 'f',
         .longopt = "fullscreen",
         .text = "Start in fullscreen.",
-    },
-    {
-        .longopt_id = OPT_FORCE_ADB_FORWARD,
-        .longopt = "force-adb-forward",
-        .text = "Do not attempt to use \"adb reverse\" to connect to the "
-                "device.",
     },
     {
         .shortopt = 'G',
@@ -460,11 +438,6 @@ static const struct sc_option options[] = {
                 "This option is only available when a HID keyboard is enabled "
                 "(or a physical keyboard is connected).\n"
                 "Also see --mouse and --gamepad.",
-    },
-    {
-        .longopt_id = OPT_KILL_ADB_ON_CLOSE,
-        .longopt = "kill-adb-on-close",
-        .text = "Kill adb when scrcpy terminates.",
     },
     {
         .longopt_id = OPT_LEGACY_PASTE,
@@ -701,21 +674,6 @@ static const struct sc_option options[] = {
                 "--record-orientation=value.",
     },
     {
-        .longopt_id = OPT_OTG,
-        .longopt = "otg",
-        .text = "Run in OTG mode: simulate physical keyboard and mouse, "
-                "as if the computer keyboard and mouse were plugged directly "
-                "to the device via an OTG cable.\n"
-                "In this mode, adb (USB debugging) is not necessary, and "
-                "mirroring is disabled.\n"
-                "LAlt, LSuper or RSuper toggle the mouse capture mode, to give "
-                "control of the mouse back to the computer.\n"
-                "Keyboard and mouse may be disabled separately using"
-                "--keyboard=disabled and --mouse=disabled.\n"
-                "It may only work over USB.\n"
-                "See --keyboard, --mouse and --gamepad.",
-    },
-    {
         .shortopt = 'p',
         .longopt = "port",
         .argdesc = "port[:port]",
@@ -882,42 +840,23 @@ static const struct sc_option options[] = {
                 "It only shows physical touches (not clicks from scrcpy).",
     },
     {
-        .longopt_id = OPT_TCPIP,
-        .longopt = "tcpip",
-        .argdesc = "[+]ip[:port]",
-        .optional_arg = true,
-        .text = "Configure and connect the device over TCP/IP.\n"
-                "If a destination address is provided, then scrcpy connects to "
-                "this address before starting. The device must listen on the "
-                "given TCP port (default is 5555).\n"
-                "If no destination address is provided, then scrcpy attempts "
-                "to find the IP address of the current device (typically "
-                "connected over USB), enables TCP/IP mode, then connects to "
-                "this address before starting.\n"
-                "Prefix the address with a '+' to force a reconnection.",
-    },
-    {
         .longopt_id = OPT_TIME_LIMIT,
         .longopt = "time-limit",
         .argdesc = "seconds",
         .text = "Set the maximum mirroring time, in seconds.",
     },
     {
-        .longopt_id = OPT_TUNNEL_HOST,
-        .longopt = "tunnel-host",
+        .longopt_id = OPT_DEVICE_HOST,
+        .longopt = "device-host",
         .argdesc = "ip",
-        .text = "Set the IP address of the adb tunnel to reach the scrcpy "
-                "server. This option automatically enables "
-                "--force-adb-forward.\n"
+        .text = "Set the IP address of the scrcpy server. \n"
                 "Default is localhost.",
     },
     {
-        .longopt_id = OPT_TUNNEL_PORT,
-        .longopt = "tunnel-port",
+        .longopt_id = OPT_DEVICE_PORT,
+        .longopt = "device-port",
         .argdesc = "port",
-        .text = "Set the TCP port of the adb tunnel to reach the scrcpy "
-                "server. This option automatically enables "
-                "--force-adb-forward.\n"
+        .text = "Set the TCP port of the scrcpy server. \n"
                 "Default is 0 (not forced): the local port used for "
                 "establishing the tunnel will be used.",
     },
@@ -1216,15 +1155,6 @@ static const struct sc_shortcut shortcuts[] = {
 };
 
 static const struct sc_envvar envvars[] = {
-    {
-        .name = "ADB",
-        .text = "Path to adb executable",
-    },
-    {
-        .name = "ANDROID_SERIAL",
-        .text = "Device serial to use if no selector (-s, -d, -e or "
-                "--tcpip=<addr>) is specified",
-    },
     {
         .name = "SCRCPY_ICON_DIR",
         .text = "Path to the icon directory",
@@ -2181,13 +2111,8 @@ parse_keyboard(const char *optarg, enum sc_keyboard_input_mode *mode) {
     }
 
     if (!strcmp(optarg, "aoa")) {
-#ifdef HAVE_USB
-        *mode = SC_KEYBOARD_INPUT_MODE_AOA;
-        return true;
-#else
         LOGE("--keyboard=aoa is disabled.");
         return false;
-#endif
     }
 
     LOGE("Unsupported keyboard: %s (expected disabled, sdk, uhid or aoa)",
@@ -2213,13 +2138,8 @@ parse_mouse(const char *optarg, enum sc_mouse_input_mode *mode) {
     }
 
     if (!strcmp(optarg, "aoa")) {
-#ifdef HAVE_USB
-        *mode = SC_MOUSE_INPUT_MODE_AOA;
-        return true;
-#else
         LOGE("--mouse=aoa is disabled.");
         return false;
-#endif
     }
 
     LOGE("Unsupported mouse: %s (expected disabled, sdk, uhid or aoa)", optarg);
@@ -2239,13 +2159,8 @@ parse_gamepad(const char *optarg, enum sc_gamepad_input_mode *mode) {
     }
 
     if (!strcmp(optarg, "aoa")) {
-#ifdef HAVE_USB
-        *mode = SC_GAMEPAD_INPUT_MODE_AOA;
-        return true;
-#else
         LOGE("--gamepad=aoa is disabled.");
         return false;
-#endif
     }
 
     LOGE("Unsupported gamepad: %s (expected disabled or aoa)", optarg);
@@ -2493,12 +2408,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                     return false;
                 }
                 break;
-            case 'd':
-                opts->select_usb = true;
-                break;
-            case 'e':
-                opts->select_tcpip = true;
-                break;
             case 'f':
                 opts->fullscreen = true;
                 break;
@@ -2509,9 +2418,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                 break;
             case 'h':
                 args->help = true;
-                break;
-            case 'K':
-                opts->keyboard_input_mode = SC_KEYBOARD_INPUT_MODE_UHID_OR_AOA;
                 break;
             case OPT_KEYBOARD:
                 if (!parse_keyboard(optarg, &opts->keyboard_input_mode)) {
@@ -2525,9 +2431,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                 if (!parse_max_size(optarg, &opts->max_size)) {
                     return false;
                 }
-                break;
-            case 'M':
-                opts->mouse_input_mode = SC_MOUSE_INPUT_MODE_UHID_OR_AOA;
                 break;
             case OPT_MOUSE:
                 if (!parse_mouse(optarg, &opts->mouse_input_mode)) {
@@ -2549,13 +2452,13 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                     return false;
                 }
                 break;
-            case OPT_TUNNEL_HOST:
-                if (!parse_ip(optarg, &opts->tunnel_host)) {
+            case OPT_DEVICE_HOST:
+                if (!parse_ip(optarg, &opts->device_host)) {
                     return false;
                 }
                 break;
-            case OPT_TUNNEL_PORT:
-                if (!parse_port(optarg, &opts->tunnel_port)) {
+            case OPT_DEVICE_PORT:
+                if (!parse_port(optarg, &opts->device_port)) {
                     return false;
                 }
                 break;
@@ -2686,9 +2589,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
             case OPT_AUDIO_ENCODER:
                 opts->audio_encoder = optarg;
                 break;
-            case OPT_FORCE_ADB_FORWARD:
-                opts->force_adb_forward = true;
-                break;
             case OPT_DISABLE_SCREENSAVER:
                 opts->disable_screensaver = true;
                 break;
@@ -2710,10 +2610,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                 break;
             case OPT_NO_CLIPBOARD_AUTOSYNC:
                 opts->clipboard_autosync = false;
-                break;
-            case OPT_TCPIP:
-                opts->tcpip = true;
-                opts->tcpip_dst = optarg;
                 break;
             case OPT_NO_DOWNSIZE_ON_ERROR:
                 opts->downsize_on_error = false;
@@ -2743,14 +2639,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                     return false;
                 }
                 break;
-            case OPT_OTG:
-#ifdef HAVE_USB
-                opts->otg = true;
-                break;
-#else
-                LOGE("OTG mode (--otg) is disabled.");
-                return false;
-#endif
             case OPT_V4L2_SINK:
 #ifdef HAVE_V4L2
                 opts->v4l2_device = optarg;
@@ -2810,9 +2698,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                     return false;
                 }
                 break;
-            case OPT_KILL_ADB_ON_CLOSE:
-                opts->kill_adb_on_close = true;
-                break;
             case OPT_TIME_LIMIT:
                 if (!parse_time_limit(optarg, &opts->time_limit)) {
                     return false;
@@ -2856,9 +2741,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                 break;
             case OPT_AUDIO_DUP:
                 opts->audio_dup = true;
-                break;
-            case 'G':
-                opts->gamepad_input_mode = SC_GAMEPAD_INPUT_MODE_UHID_OR_AOA;
                 break;
             case OPT_GAMEPAD:
                 if (!parse_gamepad(optarg, &opts->gamepad_input_mode)) {
@@ -2929,27 +2811,7 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
         return false;
     }
 
-    // If a TCP/IP address is provided, then tcpip must be enabled
-    assert(opts->tcpip || !opts->tcpip_dst);
-
-    unsigned selectors = !!opts->serial
-                       + !!opts->tcpip_dst
-                       + opts->select_tcpip
-                       + opts->select_usb;
-    if (selectors > 1) {
-        LOGE("At most one device selector option may be passed, among:\n"
-             "  --serial (-s)\n"
-             "  --select-usb (-d)\n"
-             "  --select-tcpip (-e)\n"
-             "  --tcpip=<addr> (with an argument)");
-        return false;
-    }
-
-    bool otg = false;
     bool v4l2 = false;
-#ifdef HAVE_USB
-    otg = opts->otg;
-#endif
 #ifdef HAVE_V4L2
     v4l2 = !!opts->v4l2_device;
 #endif
@@ -2982,12 +2844,12 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
         opts->audio = false;
     }
 
-    if (!opts->video && !opts->audio && !opts->control && !otg) {
-        LOGE("No video, no audio, no control, no OTG: nothing to do");
+    if (!opts->video && !opts->audio && !opts->control) {
+        LOGE("No video, no audio, no control: nothing to do");
         return false;
     }
 
-    if (!opts->video && !otg) {
+    if (!opts->video) {
         // If video is disabled, then scrcpy must exit on audio failure.
         opts->require_audio = true;
     }
@@ -3032,34 +2894,20 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
 
     if (opts->control && opts->video_source == SC_VIDEO_SOURCE_DISPLAY) {
         if (opts->keyboard_input_mode == SC_KEYBOARD_INPUT_MODE_AUTO) {
-            opts->keyboard_input_mode = otg ? SC_KEYBOARD_INPUT_MODE_AOA
-                                            : SC_KEYBOARD_INPUT_MODE_SDK;
-        } else if (opts->keyboard_input_mode
-                == SC_KEYBOARD_INPUT_MODE_UHID_OR_AOA) {
-            opts->keyboard_input_mode = otg ? SC_KEYBOARD_INPUT_MODE_AOA
-                                            : SC_KEYBOARD_INPUT_MODE_UHID;
+            opts->keyboard_input_mode = SC_KEYBOARD_INPUT_MODE_SDK;
         }
 
         if (opts->mouse_input_mode == SC_MOUSE_INPUT_MODE_AUTO) {
-            if (otg) {
-                opts->mouse_input_mode = SC_MOUSE_INPUT_MODE_AOA;
-            } else if (!opts->video_playback) {
+            if (!opts->video_playback) {
                 LOGI("No video mirroring, SDK mouse disabled");
                 opts->mouse_input_mode = SC_MOUSE_INPUT_MODE_DISABLED;
             } else {
                 opts->mouse_input_mode = SC_MOUSE_INPUT_MODE_SDK;
             }
-        } else if (opts->mouse_input_mode == SC_MOUSE_INPUT_MODE_UHID_OR_AOA) {
-            opts->mouse_input_mode = otg ? SC_MOUSE_INPUT_MODE_AOA
-                                         : SC_MOUSE_INPUT_MODE_UHID;
         } else if (opts->mouse_input_mode == SC_MOUSE_INPUT_MODE_SDK
                     && !opts->video_playback) {
             LOGE("SDK mouse mode requires video playback. Try --mouse=uhid.");
             return false;
-        }
-        if (opts->gamepad_input_mode == SC_GAMEPAD_INPUT_MODE_UHID_OR_AOA) {
-            opts->gamepad_input_mode = otg ? SC_GAMEPAD_INPUT_MODE_AOA
-                                           : SC_GAMEPAD_INPUT_MODE_UHID;
         }
     }
 
@@ -3114,41 +2962,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                                               : SC_RENDER_FIT_LETTERBOX;
     }
 
-    if (otg) {
-        if (!opts->control) {
-            LOGE("--no-control is not allowed in OTG mode");
-            return false;
-        }
-
-        enum sc_keyboard_input_mode kmode = opts->keyboard_input_mode;
-        if (kmode != SC_KEYBOARD_INPUT_MODE_AOA
-                && kmode != SC_KEYBOARD_INPUT_MODE_DISABLED) {
-            LOGE("In OTG mode, --keyboard only supports aoa or disabled.");
-            return false;
-        }
-
-        enum sc_mouse_input_mode mmode = opts->mouse_input_mode;
-        if (mmode != SC_MOUSE_INPUT_MODE_AOA
-                && mmode != SC_MOUSE_INPUT_MODE_DISABLED) {
-            LOGE("In OTG mode, --mouse only supports aoa or disabled.");
-            return false;
-        }
-
-        enum sc_gamepad_input_mode gmode = opts->gamepad_input_mode;
-        if (gmode != SC_GAMEPAD_INPUT_MODE_AOA
-                && gmode != SC_GAMEPAD_INPUT_MODE_DISABLED) {
-            LOGE("In OTG mode, --gamepad only supports aoa or disabled.");
-            return false;
-        }
-
-        if (kmode == SC_KEYBOARD_INPUT_MODE_DISABLED
-                && mmode == SC_MOUSE_INPUT_MODE_DISABLED
-                && gmode == SC_GAMEPAD_INPUT_MODE_DISABLED) {
-            LOGE("Cannot not disable all inputs in OTG mode.");
-            return false;
-        }
-    }
-
     if (opts->keyboard_input_mode != SC_KEYBOARD_INPUT_MODE_SDK) {
         if (opts->key_inject_mode == SC_KEY_INJECT_MODE_TEXT) {
             LOGE("--prefer-text is specific to --keyboard=sdk");
@@ -3170,12 +2983,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
             && !opts->mouse_hover) {
         LOGE("--no-mouse-over is specific to --mouse=sdk");
         return false;
-    }
-
-    if ((opts->tunnel_host || opts->tunnel_port) && !opts->force_adb_forward) {
-        LOGI("Tunnel host/port is set, "
-             "--force-adb-forward automatically enabled.");
-        opts->force_adb_forward = true;
     }
 
     if (opts->video_source == SC_VIDEO_SOURCE_CAMERA) {
@@ -3410,53 +3217,9 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
         }
     }
 
-# ifdef _WIN32
-    if (!otg && (opts->keyboard_input_mode == SC_KEYBOARD_INPUT_MODE_AOA
-                || opts->mouse_input_mode == SC_MOUSE_INPUT_MODE_AOA)) {
-        LOGE("On Windows, it is not possible to open a USB device already open "
-             "by another process (like adb).");
-        LOGE("Therefore, --keyboard=aoa and --mouse=aoa may only work in OTG"
-             "mode (--otg).");
-        return false;
-    }
-# endif
-
     if (opts->start_fps_counter && !opts->video_playback) {
         LOGW("--print-fps has no effect without video playback");
         opts->start_fps_counter = false;
-    }
-
-    if (otg) {
-        // OTG mode is compatible with only very few options.
-        // Only report obvious errors.
-        if (opts->record_filename) {
-            LOGE("OTG mode: cannot record");
-            return false;
-        }
-        if (opts->turn_screen_off) {
-            LOGE("OTG mode: could not turn screen off");
-            return false;
-        }
-        if (opts->stay_awake) {
-            LOGE("OTG mode: could not stay awake");
-            return false;
-        }
-        if (opts->show_touches) {
-            LOGE("OTG mode: could not request to show touches");
-            return false;
-        }
-        if (opts->power_off_on_close) {
-            LOGE("OTG mode: could not request power off on close");
-            return false;
-        }
-        if (opts->display_id) {
-            LOGE("OTG mode: could not select display");
-            return false;
-        }
-        if (v4l2) {
-            LOGE("OTG mode: could not sink to V4L2 device");
-            return false;
-        }
     }
 
     return true;

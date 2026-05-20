@@ -20,7 +20,6 @@
 #include "delay_buffer.h"
 #include "demuxer.h"
 #include "events.h"
-#include "file_pusher.h"
 #include "keyboard_sdk.h"
 #include "mouse_sdk.h"
 #include "recorder.h"
@@ -30,13 +29,6 @@
 #include "uhid/gamepad_uhid.h"
 #include "uhid/keyboard_uhid.h"
 #include "uhid/mouse_uhid.h"
-#ifdef HAVE_USB
-# include "usb/aoa_hid.h"
-# include "usb/gamepad_aoa.h"
-# include "usb/keyboard_aoa.h"
-# include "usb/mouse_aoa.h"
-# include "usb/usb.h"
-#endif
 #include "util/acksync.h"
 #include "util/log.h"
 #include "util/rand.h"
@@ -61,33 +53,17 @@ struct scrcpy {
     struct sc_delay_buffer v4l2_buffer;
 #endif
     struct sc_controller controller;
-    struct sc_file_pusher file_pusher;
-#ifdef HAVE_USB
-    struct sc_usb usb;
-    struct sc_aoa aoa;
-    // sequence/ack helper to synchronize clipboard and Ctrl+v via HID
-    struct sc_acksync acksync;
-#endif
     struct sc_uhid_devices uhid_devices;
     union {
         struct sc_keyboard_sdk keyboard_sdk;
         struct sc_keyboard_uhid keyboard_uhid;
-#ifdef HAVE_USB
-        struct sc_keyboard_aoa keyboard_aoa;
-#endif
     };
     union {
         struct sc_mouse_sdk mouse_sdk;
         struct sc_mouse_uhid mouse_uhid;
-#ifdef HAVE_USB
-        struct sc_mouse_aoa mouse_aoa;
-#endif
     };
     union {
         struct sc_gamepad_uhid gamepad_uhid;
-#ifdef HAVE_USB
-        struct sc_gamepad_aoa gamepad_aoa;
-#endif
     };
     struct sc_timeout timeout;
 };
@@ -130,9 +106,6 @@ event_loop(struct scrcpy *s, bool has_screen) {
                 return SCRCPY_EXIT_FAILURE;
             case SC_EVENT_RECORDER_ERROR:
                 LOGE("Recorder error");
-                return SCRCPY_EXIT_FAILURE;
-            case SC_EVENT_AOA_OPEN_ERROR:
-                LOGE("AOA open error");
                 return SCRCPY_EXIT_FAILURE;
             case SC_EVENT_TIME_LIMIT_REACHED:
                 LOGI("Time limit reached");
@@ -322,7 +295,6 @@ scrcpy(struct scrcpy_options *options) {
     enum scrcpy_exit_code ret = SCRCPY_EXIT_FAILURE;
 
     bool server_started = false;
-    bool file_pusher_initialized = false;
     bool recorder_initialized = false;
     bool recorder_started = false;
 #ifdef HAVE_V4L2
@@ -330,12 +302,6 @@ scrcpy(struct scrcpy_options *options) {
 #endif
     bool video_demuxer_started = false;
     bool audio_demuxer_started = false;
-#ifdef HAVE_USB
-    bool aoa_hid_initialized = false;
-    bool keyboard_aoa_initialized = false;
-    bool mouse_aoa_initialized = false;
-    bool gamepad_aoa_initialized = false;
-#endif
     bool controller_initialized = false;
     bool controller_started = false;
     bool screen_initialized = false;
@@ -350,8 +316,6 @@ scrcpy(struct scrcpy_options *options) {
     struct sc_server_params params = {
         .scid = scid,
         .req_serial = options->serial,
-        .select_usb = options->select_usb,
-        .select_tcpip = options->select_tcpip,
         .log_level = options->log_level,
         .video_codec = options->video_codec,
         .audio_codec = options->audio_codec,
@@ -360,8 +324,6 @@ scrcpy(struct scrcpy_options *options) {
         .camera_facing = options->camera_facing,
         .crop = options->crop,
         .port_range = options->port_range,
-        .tunnel_host = options->tunnel_host,
-        .tunnel_port = options->tunnel_port,
         .min_size_alignment = options->min_size_alignment,
         .max_size = options->max_size,
         .video_bit_rate = options->video_bit_rate,
@@ -388,15 +350,11 @@ scrcpy(struct scrcpy_options *options) {
         .camera_size = options->camera_size,
         .camera_ar = options->camera_ar,
         .camera_fps = options->camera_fps,
-        .force_adb_forward = options->force_adb_forward,
         .power_off_on_close = options->power_off_on_close,
         .clipboard_autosync = options->clipboard_autosync,
         .downsize_on_error = options->downsize_on_error,
-        .tcpip = options->tcpip,
-        .tcpip_dst = options->tcpip_dst,
         .cleanup = options->cleanup,
         .power_on = options->power_on,
-        .kill_adb_on_close = options->kill_adb_on_close,
         .camera_high_speed = options->camera_high_speed,
         .camera_torch = options->camera_torch,
         .camera_zoom = options->camera_zoom,
@@ -490,20 +448,6 @@ scrcpy(struct scrcpy_options *options) {
     // It is necessarily initialized here, since the device is connected
     struct sc_server_info *info = &s->server.info;
 
-    const char *serial = s->server.serial;
-    assert(serial);
-
-    struct sc_file_pusher *fp = NULL;
-
-    if (options->window && options->control) {
-        if (!sc_file_pusher_init(&s->file_pusher, serial,
-                                 options->push_target)) {
-            goto end;
-        }
-        fp = &s->file_pusher;
-        file_pusher_initialized = true;
-    }
-
     if (options->video) {
         static const struct sc_demuxer_callbacks video_demuxer_cbs = {
             .on_ended = sc_video_demuxer_on_ended,
@@ -581,102 +525,8 @@ scrcpy(struct scrcpy_options *options) {
 
         controller = &s->controller;
 
-#ifdef HAVE_USB
-        bool use_keyboard_aoa =
-            options->keyboard_input_mode == SC_KEYBOARD_INPUT_MODE_AOA;
-        bool use_mouse_aoa =
-            options->mouse_input_mode == SC_MOUSE_INPUT_MODE_AOA;
-        bool use_gamepad_aoa =
-            options->gamepad_input_mode == SC_GAMEPAD_INPUT_MODE_AOA;
-        if (use_keyboard_aoa || use_mouse_aoa || use_gamepad_aoa) {
-            bool ok = sc_acksync_init(&s->acksync);
-            if (!ok) {
-                goto end;
-            }
-
-            ok = sc_usb_init(&s->usb);
-            if (!ok) {
-                LOGE("Failed to initialize USB");
-                sc_acksync_destroy(&s->acksync);
-                goto end;
-            }
-
-            assert(serial);
-            struct sc_usb_device usb_device;
-            ok = sc_usb_select_device(&s->usb, serial, &usb_device);
-            if (!ok) {
-                sc_usb_destroy(&s->usb);
-                goto end;
-            }
-
-            LOGI("USB device: %s (%04" PRIx16 ":%04" PRIx16 ") %s %s",
-                 usb_device.serial, usb_device.vid, usb_device.pid,
-                 usb_device.manufacturer, usb_device.product);
-
-            ok = sc_usb_connect(&s->usb, usb_device.device, NULL, NULL);
-            sc_usb_device_destroy(&usb_device);
-            if (!ok) {
-                LOGE("Failed to connect to USB device %s", serial);
-                sc_usb_destroy(&s->usb);
-                sc_acksync_destroy(&s->acksync);
-                goto end;
-            }
-
-            ok = sc_aoa_init(&s->aoa, &s->usb, &s->acksync);
-            if (!ok) {
-                LOGE("Failed to enable HID over AOA");
-                sc_usb_disconnect(&s->usb);
-                sc_usb_destroy(&s->usb);
-                sc_acksync_destroy(&s->acksync);
-                goto end;
-            }
-
-            bool aoa_fail = false;
-            if (use_keyboard_aoa) {
-                if (sc_keyboard_aoa_init(&s->keyboard_aoa, &s->aoa)) {
-                    keyboard_aoa_initialized = true;
-                    kp = &s->keyboard_aoa.key_processor;
-                } else {
-                    LOGE("Could not initialize HID keyboard");
-                    aoa_fail = true;
-                    goto aoa_complete;
-                }
-            }
-
-            if (use_mouse_aoa) {
-                if (sc_mouse_aoa_init(&s->mouse_aoa, &s->aoa)) {
-                    mouse_aoa_initialized = true;
-                    mp = &s->mouse_aoa.mouse_processor;
-                } else {
-                    LOGE("Could not initialized HID mouse");
-                    aoa_fail = true;
-                    goto aoa_complete;
-                }
-            }
-
-            if (use_gamepad_aoa) {
-                sc_gamepad_aoa_init(&s->gamepad_aoa, &s->aoa);
-                gp = &s->gamepad_aoa.gamepad_processor;
-                gamepad_aoa_initialized = true;
-            }
-
-aoa_complete:
-            if (aoa_fail || !sc_aoa_start(&s->aoa)) {
-                sc_acksync_destroy(&s->acksync);
-                sc_usb_disconnect(&s->usb);
-                sc_usb_destroy(&s->usb);
-                sc_aoa_destroy(&s->aoa);
-                goto end;
-            }
-
-            acksync = &s->acksync;
-
-            aoa_hid_initialized = true;
-        }
-#else
         assert(options->keyboard_input_mode != SC_KEYBOARD_INPUT_MODE_AOA);
         assert(options->mouse_input_mode != SC_MOUSE_INPUT_MODE_AOA);
-#endif
 
         struct sc_keyboard_uhid *uhid_keyboard = NULL;
 
@@ -738,7 +588,6 @@ aoa_complete:
             .camera = options->video_source == SC_VIDEO_SOURCE_CAMERA,
             .flex_display = options->flex_display,
             .controller = controller,
-            .fp = fp,
             .kp = kp,
             .mp = mp,
             .gp = gp,
@@ -895,17 +744,8 @@ end:
 
     // The demuxer is not stopped explicitly, because it will stop by itself on
     // end-of-stream
-#ifdef HAVE_USB
-    if (aoa_hid_initialized) {
-        sc_aoa_stop(&s->aoa);
-        sc_usb_stop(&s->usb);
-    }
-#endif
     if (controller_started) {
         sc_controller_stop(&s->controller);
-    }
-    if (file_pusher_initialized) {
-        sc_file_pusher_stop(&s->file_pusher);
     }
     if (recorder_initialized) {
         sc_recorder_stop(&s->recorder);
@@ -953,29 +793,6 @@ end:
     }
 #endif
 
-#ifdef HAVE_USB
-    if (aoa_hid_initialized) {
-        sc_aoa_join(&s->aoa);
-        sc_aoa_destroy(&s->aoa);
-        sc_usb_join(&s->usb);
-        sc_usb_disconnect(&s->usb);
-        sc_usb_destroy(&s->usb);
-
-        if (keyboard_aoa_initialized) {
-            sc_keyboard_aoa_destroy(&s->keyboard_aoa);
-        }
-        if (mouse_aoa_initialized) {
-            sc_mouse_aoa_destroy(&s->mouse_aoa);
-        }
-        if (gamepad_aoa_initialized) {
-            sc_gamepad_aoa_destroy(&s->gamepad_aoa);
-        }
-    }
-    if (acksync) {
-        sc_acksync_destroy(acksync);
-    }
-#endif
-
     // Destroy the screen only after the video demuxer is guaranteed to be
     // finished, because otherwise the screen could receive new frames after
     // destruction
@@ -998,11 +815,6 @@ end:
         sc_recorder_destroy(&s->recorder);
     }
 
-    if (file_pusher_initialized) {
-        sc_file_pusher_join(&s->file_pusher);
-        sc_file_pusher_destroy(&s->file_pusher);
-    }
-
     if (server_started) {
         sc_server_join(&s->server);
     }
@@ -1011,3 +823,4 @@ end:
 
     return ret;
 }
+
