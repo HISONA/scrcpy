@@ -67,6 +67,7 @@ enum {
     OPT_NO_VIDEO_PLAYBACK,
     OPT_VIDEO_SOURCE,
     OPT_AUDIO_SOURCE,
+    OPT_TCPIP,
     OPT_TIME_LIMIT,
     OPT_PAUSE_ON_EXIT,
     OPT_LIST_CAMERAS,
@@ -103,8 +104,6 @@ enum {
     OPT_KEEP_ACTIVE,
     OPT_BACKGROUND_COLOR,
     OPT_RENDER_FIT,
-    OPT_DEVICE_HOST,
-    OPT_DEVICE_PORT,
 };
 
 struct sc_option {
@@ -840,25 +839,20 @@ static const struct sc_option options[] = {
                 "It only shows physical touches (not clicks from scrcpy).",
     },
     {
+    .longopt_id = OPT_TCPIP,
+    .longopt = "tcpip",
+    .argdesc = "ip[:port]",
+    .text = "Configure and connect the device over TCP/IP.\n"
+            "If a destination address is provided, then scrcpy connects to "
+            "this address before starting. The device must listen on the "
+            "given TCP port (default is 27183).\n"
+            "Prefix the address with a '+' to force a reconnection.",
+    },
+    {
         .longopt_id = OPT_TIME_LIMIT,
         .longopt = "time-limit",
         .argdesc = "seconds",
         .text = "Set the maximum mirroring time, in seconds.",
-    },
-    {
-        .longopt_id = OPT_DEVICE_HOST,
-        .longopt = "device-host",
-        .argdesc = "ip",
-        .text = "Set the IP address of the scrcpy server. \n"
-                "Default is localhost.",
-    },
-    {
-        .longopt_id = OPT_DEVICE_PORT,
-        .longopt = "device-port",
-        .argdesc = "port",
-        .text = "Set the TCP port of the scrcpy server. \n"
-                "Default is 0 (not forced): the local port used for "
-                "establishing the tunnel will be used.",
     },
     {
         .shortopt = 'v',
@@ -2452,16 +2446,6 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                     return false;
                 }
                 break;
-            case OPT_DEVICE_HOST:
-                if (!parse_ip(optarg, &opts->device_host)) {
-                    return false;
-                }
-                break;
-            case OPT_DEVICE_PORT:
-                if (!parse_port(optarg, &opts->device_port)) {
-                    return false;
-                }
-                break;
             case 'n':
                 opts->control = false;
                 break;
@@ -2610,6 +2594,9 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                 break;
             case OPT_NO_CLIPBOARD_AUTOSYNC:
                 opts->clipboard_autosync = false;
+                break;
+            case OPT_TCPIP:
+                opts->tcpip_dst = optarg;
                 break;
             case OPT_NO_DOWNSIZE_ON_ERROR:
                 opts->downsize_on_error = false;

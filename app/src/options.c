@@ -91,6 +91,7 @@ const struct scrcpy_options scrcpy_options_default = {
     .power_off_on_close = false,
     .clipboard_autosync = true,
     .downsize_on_error = true,
+    .tcpip_dst = NULL,
     .cleanup = true,
     .start_fps_counter = false,
     .power_on = true,
@@ -110,8 +111,6 @@ const struct scrcpy_options scrcpy_options_default = {
     .camera_torch = false,
     .keep_active = false,
     .flex_display = false,
-    .device_host = NULL, // device IP address
-    .device_port = 0,    // device TCP port (default 27183)
 };
 
 enum sc_orientation

@@ -89,23 +89,26 @@ sc_server_connect_to(struct sc_server *server, struct sc_server_info *info) {
 
     // Resolve device host
     uint32_t host = 0;
-    if (params->device_host) {
-        if (!net_parse_ipv4(params->device_host, &host)) {
-            LOGE("Invalid device host: %s", params->device_host);
+    uint16_t port = SC_DEFAULT_DEVICE_PORT;
+
+    if (params->tcpip_dst) {
+        char *colon = strchr(params->tcpip_dst, ':');
+        if (colon) {
+            port = atoi(colon + 1);
+            *colon = '\0';
+        }
+
+        if (!net_parse_ipv4(params->tcpip_dst, &host)) {
+            LOGE("Invalid device host: %s", params->tcpip_dst);
             return false;
         }
+
     } else {
-        LOGE("No device host specified. Use --device-host=<IP>");
+        LOGE("No tcpip address specified. Use --tcpip=<IP>[:PORT]");
         return false;
     }
 
-    uint16_t port = params->device_port;
-    if (!port) {
-        port = SC_DEFAULT_DEVICE_PORT;
-    }
-
-    LOGI("Connecting to device at %s:%" PRIu16,
-         params->device_host ? params->device_host : "?", port);
+    LOGI("Connecting to device at %s:%d", params->tcpip_dst, port);
 
     sc_socket video_socket = SC_SOCKET_NONE;
     sc_socket audio_socket = SC_SOCKET_NONE;
@@ -117,8 +120,7 @@ sc_server_connect_to(struct sc_server *server, struct sc_server_info *info) {
     sc_tick delay = SC_TICK_FROM_MS(100);
 
     // First socket
-    sc_socket first_socket = connect_to_device(server, host, port,
-                                                attempts, delay);
+    sc_socket first_socket = connect_to_device(server, host, port, attempts, delay);
     if (first_socket == SC_SOCKET_NONE) {
         LOGE("Could not connect to device");
         goto fail;
@@ -212,6 +214,11 @@ fail:
 static int
 run_server(void *data) {
     struct sc_server *server = data;
+
+    const struct sc_server_params *params = &server->params;
+
+    // params->tcpip_dst implies params->tcpip
+    assert(!params->tcpip_dst);
 
     LOGI("scrcpy direct TCP mode (no ADB)");
 

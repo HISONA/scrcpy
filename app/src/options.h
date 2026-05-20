@@ -302,6 +302,7 @@ struct scrcpy_options {
     bool power_off_on_close;
     bool clipboard_autosync;
     bool downsize_on_error;
+    const char *tcpip_dst;
     bool cleanup;
     bool start_fps_counter;
     bool power_on;
@@ -325,10 +326,6 @@ struct scrcpy_options {
     bool camera_torch;
     bool keep_active;
     bool flex_display;
-
-    // Direct TCP connection (no ADB)
-    const char *device_host;  // device IP address
-    uint16_t device_port;     // device TCP port (default 27183)
 };
 
 extern const struct scrcpy_options scrcpy_options_default;

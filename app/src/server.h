@@ -59,6 +59,7 @@ struct sc_server_params {
     bool power_off_on_close;
     bool clipboard_autosync;
     bool downsize_on_error;
+    const char *tcpip_dst;  // device TCP port (default 27183)
     bool cleanup;
     bool power_on;
     bool camera_high_speed;
@@ -68,10 +69,6 @@ struct sc_server_params {
     bool keep_active;
     bool flex_display;
     uint8_t list;
-
-    // Direct TCP connection parameters (no ADB)
-    const char *device_host;   // device IP address (required)
-    uint16_t device_port;      // device TCP port (default 27183)
 };
 
 struct sc_server {
