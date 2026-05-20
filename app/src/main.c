@@ -11,9 +11,6 @@
 #include "events.h"
 #include "options.h"
 #include "scrcpy.h"
-#ifdef HAVE_USB
-# include "usb/scrcpy_otg.h"
-#endif
 #include "util/log.h"
 #include "util/net.h"
 #include "version.h"
@@ -89,11 +86,7 @@ main_scrcpy(int argc, char *argv[]) {
         goto net_cleanup;
     }
 
-#ifdef HAVE_USB
-    ret = args.opts.otg ? scrcpy_otg(&args.opts) : scrcpy(&args.opts);
-#else
     ret = scrcpy(&args.opts);
-#endif
 
     sc_main_thread_destroy();
 

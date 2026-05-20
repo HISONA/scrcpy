@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "adb/adb_tunnel.h"
 #include "options.h"
 #include "util/intr.h"
 #include "util/net.h"
@@ -62,13 +61,8 @@ struct sc_server_params {
     bool power_off_on_close;
     bool clipboard_autosync;
     bool downsize_on_error;
-    bool tcpip;
-    const char *tcpip_dst;
-    bool select_usb;
-    bool select_tcpip;
     bool cleanup;
     bool power_on;
-    bool kill_adb_on_close;
     bool camera_high_speed;
     bool camera_torch;
     bool vd_destroy_content;
@@ -76,13 +70,15 @@ struct sc_server_params {
     bool keep_active;
     bool flex_display;
     uint8_t list;
+
+    // Direct TCP connection parameters (no ADB)
+    const char *device_host;   // device IP address (required)
+    uint16_t device_port;      // device TCP port (default 27183)
 };
 
 struct sc_server {
     // The internal allocated strings are copies owned by the server
     struct sc_server_params params;
-    char *serial;
-    char *device_socket_name;
 
     sc_thread thread;
     struct sc_server_info info; // initialized once connected
@@ -92,7 +88,6 @@ struct sc_server {
     bool stopped;
 
     struct sc_intr intr;
-    struct sc_adb_tunnel tunnel;
 
     sc_socket video_socket;
     sc_socket audio_socket;

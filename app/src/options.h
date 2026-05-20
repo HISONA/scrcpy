@@ -152,27 +152,21 @@ sc_orientation_get_name(enum sc_orientation orientation) {
 
 enum sc_keyboard_input_mode {
     SC_KEYBOARD_INPUT_MODE_AUTO,
-    SC_KEYBOARD_INPUT_MODE_UHID_OR_AOA, // normal vs otg mode
     SC_KEYBOARD_INPUT_MODE_DISABLED,
     SC_KEYBOARD_INPUT_MODE_SDK,
     SC_KEYBOARD_INPUT_MODE_UHID,
-    SC_KEYBOARD_INPUT_MODE_AOA,
 };
 
 enum sc_mouse_input_mode {
     SC_MOUSE_INPUT_MODE_AUTO,
-    SC_MOUSE_INPUT_MODE_UHID_OR_AOA, // normal vs otg mode
     SC_MOUSE_INPUT_MODE_DISABLED,
     SC_MOUSE_INPUT_MODE_SDK,
     SC_MOUSE_INPUT_MODE_UHID,
-    SC_MOUSE_INPUT_MODE_AOA,
 };
 
 enum sc_gamepad_input_mode {
     SC_GAMEPAD_INPUT_MODE_DISABLED,
-    SC_GAMEPAD_INPUT_MODE_UHID_OR_AOA, // normal vs otg mode
     SC_GAMEPAD_INPUT_MODE_UHID,
-    SC_GAMEPAD_INPUT_MODE_AOA,
 };
 
 enum sc_mouse_binding {
@@ -292,9 +286,6 @@ struct scrcpy_options {
     const char *v4l2_device;
     sc_tick v4l2_buffer;
 #endif
-#ifdef HAVE_USB
-    bool otg;
-#endif
     bool show_touches;
     bool fullscreen;
     bool always_on_top;
@@ -307,24 +298,18 @@ struct scrcpy_options {
     bool window_borderless;
     bool mipmaps;
     bool stay_awake;
-    bool force_adb_forward;
     bool disable_screensaver;
     bool forward_key_repeat;
     bool legacy_paste;
     bool power_off_on_close;
     bool clipboard_autosync;
     bool downsize_on_error;
-    bool tcpip;
-    const char *tcpip_dst;
-    bool select_usb;
-    bool select_tcpip;
     bool cleanup;
     bool start_fps_counter;
     bool power_on;
     bool video;
     bool audio;
     bool require_audio;
-    bool kill_adb_on_close;
     bool camera_high_speed;
 #define SC_OPTION_LIST_ENCODERS 0x1
 #define SC_OPTION_LIST_DISPLAYS 0x2
@@ -342,6 +327,10 @@ struct scrcpy_options {
     bool camera_torch;
     bool keep_active;
     bool flex_display;
+
+    // Direct TCP connection (no ADB)
+    const char *device_host;  // device IP address
+    uint16_t device_port;     // device TCP port (default 27183)
 };
 
 extern const struct scrcpy_options scrcpy_options_default;

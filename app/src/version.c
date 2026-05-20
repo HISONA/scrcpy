@@ -7,9 +7,6 @@
 #ifdef HAVE_V4L2
 # include <libavdevice/avdevice.h>
 #endif
-#ifdef HAVE_USB
-# include <libusb-1.0/libusb.h>
-#endif
 #include <SDL3/SDL_version.h>
 
 void
@@ -63,10 +60,4 @@ scrcpy_print_version(void) {
            AV_VERSION_MICRO(avdevice));
 #endif
 
-#ifdef HAVE_USB
-    const struct libusb_version *usb = libusb_get_version();
-    // The compiled version may not be known
-    printf(" - libusb: - / %u.%u.%u\n",
-           (unsigned) usb->major, (unsigned) usb->minor, (unsigned) usb->micro);
-#endif
 }
