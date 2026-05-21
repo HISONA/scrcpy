@@ -365,12 +365,11 @@ public final class Server {
         // Keep running and accept new connections after each session ends.
         // Only exit on fatal errors or ConfigurationException.
 
-        int sessionCount = 0;
         long reconnectDelay = 1000; // ms
 
         while (true) {
-            sessionCount++;
-            Ln.i("=== Session #" + sessionCount + " starting ===");
+
+            Ln.i("=== Session starting ===");
 
             try {
                 boolean canReconnect = scrcpySession(options);
@@ -384,7 +383,7 @@ public final class Server {
                 break;
             }
 
-            Ln.i("Session #" + sessionCount + " ended, waiting for new connection...");
+            Ln.i("Session ended, waiting for new connection...");
 
             // Reset the Looper for the next session
             resetMainLooper();
@@ -398,7 +397,7 @@ public final class Server {
             }
         }
 
-        Ln.i("Server shutting down after " + sessionCount + " session(s)");
+        Ln.i("Server shutting down after session ... ");
     }
 
     @SuppressWarnings("deprecation")
@@ -412,3 +411,4 @@ public final class Server {
         }
     }
 }
+
