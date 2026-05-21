@@ -346,18 +346,21 @@ public class SurfaceEncoder implements AsyncProcessor {
             // <https://github.com/Genymobile/scrcpy/issues/4143>
             Looper.prepare();
 
+            boolean fatalError = false;
             try {
                 streamCapture();
             } catch (ConfigurationException e) {
                 // Do not print stack trace, a user-friendly error-message has already been logged
+                fatalError = true;
             } catch (IOException e) {
                 // Broken pipe is expected on close, because the socket is closed by the client
                 if (!IO.isBrokenPipe(e)) {
                     Ln.e("Video encoding error", e);
+                    fatalError = true;
                 }
             } finally {
                 Ln.d("Screen streaming stopped");
-                listener.onTerminated(true);
+                listener.onTerminated(fatalError);
             }
         }, "video");
         thread.start();
@@ -374,7 +377,7 @@ public class SurfaceEncoder implements AsyncProcessor {
     @Override
     public void join() throws InterruptedException {
         if (thread != null) {
-            thread.join();
+            thread.join(2000);
         }
     }
 }

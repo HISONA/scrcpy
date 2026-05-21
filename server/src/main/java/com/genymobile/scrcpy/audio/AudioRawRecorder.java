@@ -88,12 +88,15 @@ public final class AudioRawRecorder implements AsyncProcessor {
         if (thread != null) {
             thread.interrupt();
         }
+        // AudioRecord.read() is a native blocking call that does not respond
+        // to Thread.interrupt(). Release the recorder to unblock it.
+        capture.stop();
     }
 
     @Override
     public void join() throws InterruptedException {
         if (thread != null) {
-            thread.join();
+            thread.join(1000);
         }
     }
 }

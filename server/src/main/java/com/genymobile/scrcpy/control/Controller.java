@@ -10,6 +10,7 @@ import com.genymobile.scrcpy.model.DeviceApp;
 import com.genymobile.scrcpy.model.Point;
 import com.genymobile.scrcpy.model.Position;
 import com.genymobile.scrcpy.model.Size;
+import com.genymobile.scrcpy.util.IO;
 import com.genymobile.scrcpy.util.Ln;
 import com.genymobile.scrcpy.util.LogUtils;
 import com.genymobile.scrcpy.video.CameraCapture;
@@ -275,16 +276,21 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
         }
 
         thread = new Thread(() -> {
+            boolean fatalError = false;
             try {
                 control();
             } catch (IOException e) {
-                Ln.e("Controller error", e);
+                // Broken pipe / connection reset is expected when client disconnects
+                if (!IO.isBrokenPipe(e)) {
+                    Ln.e("Controller error", e);
+                    fatalError = true;
+                }
             } finally {
                 Ln.d("Controller stopped");
                 if (uhidManager != null) {
                     uhidManager.closeAll();
                 }
-                listener.onTerminated(true);
+                listener.onTerminated(fatalError);
             }
         }, "control-recv");
         thread.start();
@@ -309,7 +315,7 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
     @Override
     public void join() throws InterruptedException {
         if (thread != null) {
-            thread.join();
+            thread.join(2000);
         }
         if (sender != null) {
             sender.join();

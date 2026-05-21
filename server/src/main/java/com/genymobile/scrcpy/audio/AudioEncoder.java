@@ -107,7 +107,10 @@ public final class AudioEncoder implements AsyncProcessor {
             ByteBuffer buffer = mediaCodec.getInputBuffer(task.index);
             int r = capture.read(buffer, bufferInfo);
             if (r <= 0) {
-                throw new IOException("Could not read audio: " + r);
+                // r == 0 or r < 0: AudioRecord was released (capture.stop())
+                // or returned an error. This is expected during shutdown.
+                Ln.d("Audio capture ended (read returned " + r + ")");
+                return;
             }
 
             mediaCodec.queueInputBuffer(task.index, bufferInfo.offset, bufferInfo.size, bufferInfo.presentationTimeUs, bufferInfo.flags);
@@ -276,6 +279,15 @@ public final class AudioEncoder implements AsyncProcessor {
             throw e;
         } finally {
             // Cleanup everything (either at the end or on error at any step of the initialization)
+
+            // IMPORTANT: stop the capture FIRST to unblock AudioRecord.read()
+            // in the input thread. AudioRecord.read() is a native blocking call
+            // that does not respond to Thread.interrupt(). Only releasing the
+            // AudioRecord (via capture.stop()) will unblock it.
+            if (capture != null) {
+                capture.stop();
+            }
+
             if (mediaCodecThread != null) {
                 Looper looper = mediaCodecThread.getLooper();
                 if (looper != null) {
@@ -291,13 +303,13 @@ public final class AudioEncoder implements AsyncProcessor {
 
             try {
                 if (mediaCodecThread != null) {
-                    mediaCodecThread.join();
+                    mediaCodecThread.join(1000);
                 }
                 if (inputThread != null) {
-                    inputThread.join();
+                    inputThread.join(1000);
                 }
                 if (outputThread != null) {
-                    outputThread.join();
+                    outputThread.join(1000);
                 }
             } catch (InterruptedException e) {
                 // Should never happen
@@ -309,9 +321,6 @@ public final class AudioEncoder implements AsyncProcessor {
                     mediaCodec.stop();
                 }
                 mediaCodec.release();
-            }
-            if (capture != null) {
-                capture.stop();
             }
         }
     }

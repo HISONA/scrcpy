@@ -1,6 +1,7 @@
 package com.genymobile.scrcpy.device;
 
 import com.genymobile.scrcpy.control.ControlChannel;
+import com.genymobile.scrcpy.util.Ln;
 import com.genymobile.scrcpy.util.StringUtils;
 
 import java.io.Closeable;
@@ -133,18 +134,61 @@ public final class DesktopConnection implements Closeable {
         return controlSocket;
     }
 
-    public void shutdown() throws IOException {
+    /**
+     * Gracefully shut down the socket, ignoring ENOTCONN.
+     *
+     * When the peer (PC client) disconnects first, the socket transitions to
+     * a not-connected state. Calling shutdownInput()/shutdownOutput() on such
+     * a socket throws "ENOTCONN (Transport endpoint is not connected)".
+     * This is expected during normal teardown and can be safely ignored.
+     */
+    private static void shutdownSocket(Socket socket) {
+        try {
+            socket.shutdownInput();
+        } catch (IOException e) {
+            if (!isExpectedShutdownError(e)) {
+                Ln.w("shutdown(input) failed", e);
+            }
+        }
+        try {
+            socket.shutdownOutput();
+        } catch (IOException e) {
+            if (!isExpectedShutdownError(e)) {
+                Ln.w("shutdown(output) failed", e);
+            }
+        }
+    }
+
+    /**
+     * Check if the exception is expected during teardown:
+     *   - ENOTCONN: peer already disconnected
+     *   - "already shutdown": shutdown() called more than once
+     *   - "Socket closed": socket was already closed
+     */
+    private static boolean isExpectedShutdownError(IOException e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof android.system.ErrnoException) {
+            return ((android.system.ErrnoException) cause).errno
+                    == android.system.OsConstants.ENOTCONN;
+        }
+        String msg = e.getMessage();
+        if (msg == null) {
+            return false;
+        }
+        return msg.contains("ENOTCONN")
+            || msg.contains("already shutdown")
+            || msg.contains("Socket closed");
+    }
+
+    public void shutdown() {
         if (videoSocket != null) {
-            videoSocket.shutdownInput();
-            videoSocket.shutdownOutput();
+            shutdownSocket(videoSocket);
         }
         if (audioSocket != null) {
-            audioSocket.shutdownInput();
-            audioSocket.shutdownOutput();
+            shutdownSocket(audioSocket);
         }
         if (controlSocket != null) {
-            controlSocket.shutdownInput();
-            controlSocket.shutdownOutput();
+            shutdownSocket(controlSocket);
         }
     }
 
